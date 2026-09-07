@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(..., description="OpenAI API key for embeddings")
 
     # --- LLM Settings ---
-    llm_model: str = Field(default="llama-3.3-70b-versatile")
+    llm_model: str = Field(default="llama3-70b-8192")
     llm_temperature: float = Field(default=0.1)
     llm_max_tokens: int = Field(default=4096)
 

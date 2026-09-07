@@ -1,24 +1,6 @@
 # ==============================================================
 # Medical Affairs Agent
 # ==============================================================
-# ROLE: The "doctor" of the system. Responsible for fetching
-#       real, verified clinical trial data from ClinicalTrials.gov
-#       and structuring it into a validated Pydantic object.
-#
-# INPUTS (from AgentState):
-#   - drug_name: str
-#
-# OUTPUTS (updates to AgentState):
-#   - trial_data: ClinicalTrialData
-#
-# WHY THIS DESIGN:
-#   - Uses real ClinicalTrials.gov API (no API key needed!)
-#   - Uses LLM-as-a-Parser pattern to extract structured fields
-#     from the messy API JSON response
-#   - Pydantic validates every field — if LLM hallucinates a
-#     wrong type, it raises ValidationError before it propagates
-# ==============================================================
-
 import json
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -30,140 +12,141 @@ from src.models.schemas import AgentState, ClinicalTrialData
 from config.settings import settings
 
 
-# ── LLM Client ─────────────────────────────────────────────────
-# Temperature=0 for DETERMINISTIC structured output extraction.
-# We do NOT want creativity here — we want precise data parsing.
-llm = ChatGroq(
+# LLM Client -- Temperature=0 for deterministic structured extraction
+_llm_base = ChatGroq(
     model=settings.llm_model,
-    temperature=0,                   # Deterministic — no hallucination risk
+    temperature=0,
     max_tokens=1024,
     api_key=settings.groq_api_key,
-).with_structured_output(ClinicalTrialData)  # Forces JSON matching our schema
-
-
-# ── Step 1: Fetch Raw Data from ClinicalTrials.gov API ─────────
-@retry(
-    stop=stop_after_attempt(3),               # Retry up to 3 times
-    wait=wait_exponential(min=1, max=10),     # Wait 1s, 2s, 4s... between retries
 )
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
 def fetch_trial_from_api(drug_name: str) -> dict:
-    """
-    Fetches clinical trial data from the ClinicalTrials.gov public API.
-
-    No API key required — this is a free public API.
-    Returns the raw JSON for the most relevant trial found.
-
-    Args:
-        drug_name: Name of the drug to search for
-
-    Returns:
-        Raw trial JSON dict from the API
-    """
+    """Fetches clinical trial data from ClinicalTrials.gov (free public API)."""
     url = f"{settings.clinical_trials_base_url}/studies"
-
     params = {
         "query.term": drug_name,
-        "pageSize": 5,          # Get top 5 results
+        "pageSize": 3,
         "format": "json",
-        "fields": (             # Only fetch fields we care about
-            "NCTId,BriefTitle,OfficialTitle,Phase,"
-            "PrimaryOutcomeMeasure,StudyPopulation,"
-            "EnrollmentCount,StudyType"
-        ),
     }
-
     with httpx.Client(timeout=30.0) as client:
         response = client.get(url, params=params)
-        response.raise_for_status()            # Raise error if 4xx/5xx
+        response.raise_for_status()
         data = response.json()
 
-    # Extract the first (most relevant) study
     studies = data.get("studies", [])
     if not studies:
-        raise ValueError(f"No clinical trials found for drug: {drug_name}")
+        raise ValueError(f"No clinical trials found for: {drug_name}")
+    return studies[0]
 
-    return studies[0]  # Return the most relevant trial
 
-
-# ── Step 2: Use LLM to Parse Raw API Response ──────────────────
-def parse_trial_with_llm(raw_trial: dict, drug_name: str) -> ClinicalTrialData:
+def parse_trial_direct(raw_trial: dict, drug_name: str) -> dict:
     """
-    Uses the LLM to extract structured ClinicalTrialData from raw API JSON.
-
-    WHY LLM-as-a-Parser?
-    - ClinicalTrials.gov JSON is deeply nested and inconsistently structured
-    - Writing brittle parsing code breaks every time the API schema changes
-    - LLM extracts meaning regardless of nesting structure
-    - Pydantic validates the LLM output — preventing hallucination from propagating
-
-    Args:
-        raw_trial: Raw JSON from ClinicalTrials.gov
-        drug_name: Drug name for context
-
-    Returns:
-        Validated ClinicalTrialData Pydantic object
+    Directly extracts fields from ClinicalTrials.gov JSON structure.
+    This is the reliable base layer -- always works, no LLM needed.
     """
-    system_prompt = """You are a medical data extraction specialist.
+    protocol = raw_trial.get("protocolSection", {})
+    id_module = protocol.get("identificationModule", {})
+    design_module = protocol.get("designModule", {})
+    outcomes_module = protocol.get("outcomesModule", {})
+    eligibility_module = protocol.get("eligibilityModule", {})
 
-Your job is to extract structured clinical trial information from raw API data.
+    nct_id = id_module.get("nctId", "NCT-UNKNOWN")
 
-CRITICAL RULES:
-1. ONLY extract information that is EXPLICITLY present in the provided data
-2. NEVER invent, assume, or extrapolate any values
-3. If a field is not clearly present in the data, use sensible defaults:
-   - p_value: use 0.05 as placeholder (indicates "not specified")  
-   - hazard_ratio: use null if not mentioned
-   - confidence_interval: use null if not mentioned
-4. For patient_population: summarize the target population in plain English
-5. For primary_endpoint: extract the main outcome being measured"""
+    phases = design_module.get("phases", [])
+    phase = phases[0].replace("_", " ").title() if phases else "Unknown Phase"
 
-    human_prompt = f"""Extract clinical trial data for the drug '{drug_name}' from this raw data:
+    primary_outcomes = outcomes_module.get("primaryOutcomes", [])
+    endpoint = (
+        primary_outcomes[0].get("measure", "Overall Survival")
+        if primary_outcomes else "Overall Survival"
+    )
 
-{json.dumps(raw_trial, indent=2)}
+    population = eligibility_module.get("studyPopulation", "")
+    if not population:
+        criteria = eligibility_module.get("eligibilityCriteria", "Adult patients")
+        population = criteria[:100]
 
-Return structured data matching the required schema exactly."""
+    return {
+        "nct_id": nct_id,
+        "drug_name": drug_name,
+        "primary_endpoint": endpoint,
+        "p_value": 0.05,
+        "hazard_ratio": None,
+        "confidence_interval": None,
+        "patient_population": population,
+        "study_phase": phase,
+    }
 
-    # LLM call — returns validated ClinicalTrialData (via .with_structured_output)
-    result = llm.invoke([
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=human_prompt),
-    ])
 
-    return result
+def enrich_with_llm(parsed_data: dict, raw_trial: dict, drug_name: str) -> ClinicalTrialData:
+    """
+    Uses LLM to enrich parsed data with missing fields.
+    Falls back to direct-parsed data gracefully if LLM fails.
+    """
+    try:
+        structured_llm = _llm_base.with_structured_output(ClinicalTrialData)
+
+        system_prompt = (
+            "You are a clinical data extraction specialist. "
+            "Extract structured trial data from the provided JSON. "
+            "RULES: "
+            "1. Use ONLY data explicitly present in the JSON. "
+            "2. For p_value: use 0.05 if not clearly stated. "
+            "3. For hazard_ratio and confidence_interval: use null if not present. "
+            "4. Keep patient_population under 150 characters. "
+            f"5. drug_name must be exactly: {drug_name}"
+        )
+
+        human_prompt = (
+            f"Drug name: {drug_name}\n\n"
+            f"Pre-parsed baseline data:\n{json.dumps(parsed_data, indent=2)}\n\n"
+            f"Raw API data for enrichment:\n{json.dumps(raw_trial, indent=2)[:3000]}\n\n"
+            "Return a complete ClinicalTrialData object."
+        )
+
+        result = structured_llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=human_prompt),
+        ])
+
+        print("   [LLM] Enrichment: SUCCESS")
+        return result
+
+    except Exception as e:
+        print(f"   [WARN] LLM enrichment skipped ({type(e).__name__}: {str(e)[:80]})")
+        print("   [OK] Using direct-parsed data -- system continues normally")
+        return ClinicalTrialData(**parsed_data)
 
 
-# ── Main Agent Node Function ────────────────────────────────────
 def medical_agent_node(state: AgentState) -> dict:
     """
-    LangGraph node function for the Medical Affairs Agent.
-
-    This is the function LangGraph calls when executing this node.
-    It MUST:
-    1. Accept AgentState as input
-    2. Return a dict of fields to UPDATE in the state
-
-    Args:
-        state: Current AgentState from the graph
-
-    Returns:
-        Dict with 'trial_data' key to update in AgentState
+    LangGraph node for the Medical Affairs Agent.
+    Input:  full AgentState
+    Output: dict of updated fields (only trial_data)
     """
-    print(f"\n🔬 [Medical Affairs Agent] Fetching trial data for: {state.drug_name}")
+    print(f"\n[MedAgent] Fetching trial data for: {state.drug_name}")
 
-    # If this is a retry run, log that context
     if state.loop_count > 0:
-        print(f"   ↻ Retry #{state.loop_count} — previous compliance failure was: "
-              f"{state.compliance_result.failure_type if state.compliance_result else 'unknown'}")
+        prev_failure = (
+            state.compliance_result.failure_type
+            if state.compliance_result else "unknown"
+        )
+        print(f"   [RETRY] Loop #{state.loop_count} -- previous failure: {prev_failure}")
 
     # Step 1: Fetch from ClinicalTrials.gov
     raw_trial = fetch_trial_from_api(state.drug_name)
-    print(f"   ✅ API returned trial data")
+    print("   [OK] API returned trial data")
 
-    # Step 2: Parse with LLM into structured Pydantic object
-    trial_data = parse_trial_with_llm(raw_trial, state.drug_name)
-    print(f"   ✅ Structured data extracted: NCT ID = {trial_data.nct_id}")
-    print(f"   📊 Primary Endpoint: {trial_data.primary_endpoint}")
-    print(f"   📊 p-value: {trial_data.p_value}")
+    # Step 2: Direct parse (reliable base)
+    parsed_data = parse_trial_direct(raw_trial, state.drug_name)
+    print(f"   [OK] Direct parse complete -- NCT ID: {parsed_data['nct_id']}")
 
-    # Return ONLY the fields we updated — LangGraph merges into state
+    # Step 3: LLM enrichment (with fallback)
+    trial_data = enrich_with_llm(parsed_data, raw_trial, state.drug_name)
+    print(f"   [DATA] Primary Endpoint : {trial_data.primary_endpoint}")
+    print(f"   [DATA] Study Phase      : {trial_data.study_phase}")
+    print(f"   [DATA] p-value          : {trial_data.p_value}")
+
     return {"trial_data": trial_data}
