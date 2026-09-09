@@ -1,29 +1,36 @@
 # ==============================================================
-# PharmAgentAI — Central Configuration
+# PharmAgentAI -- Central Configuration
 # ==============================================================
-# Uses pydantic-settings to load from .env file automatically
+# Uses pydantic-settings to load from .env file automatically.
+# Import the `settings` singleton anywhere in the codebase.
 # ==============================================================
 
-from pydantic_settings import BaseSettings
 from pydantic import Field
+from pydantic_settings import BaseSettings
+from typing import Optional
 
 
 class Settings(BaseSettings):
     """
     Central configuration for PharmAgentAI.
-    All values are loaded from the .env file automatically.
+    All values auto-loaded from .env file.
     """
 
-    # --- LLM Provider ---
+    # --- LLM Provider (Required) ---
     groq_api_key: str = Field(..., description="Groq API key for LLM inference")
-    openai_api_key: str = Field(..., description="OpenAI API key for embeddings")
+
+    # --- Embeddings (Optional -- needed only for RAG on Day 5) ---
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key for embeddings (needed from Day 5 onward)"
+    )
 
     # --- LLM Settings ---
-    llm_model: str = Field(default="llama3-70b-8192")
+    llm_model: str = Field(default="qwen/qwen3.8-27b")
     llm_temperature: float = Field(default=0.1)
     llm_max_tokens: int = Field(default=4096)
 
-    # --- Database ---
+    # --- Database (needed from Day 4 onward) ---
     database_url: str = Field(
         default="postgresql://postgres:password@localhost:5432/pharmagent_db"
     )
@@ -31,7 +38,7 @@ class Settings(BaseSettings):
     # --- Agent Behaviour ---
     max_retry_loops: int = Field(
         default=3,
-        description="Max agent retry loops before Human-in-the-Loop escalation"
+        description="Max retry loops before Human-in-the-Loop escalation"
     )
     log_level: str = Field(default="INFO")
 
@@ -45,5 +52,5 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
 
 
-# Singleton — import this object everywhere in the codebase
+# Singleton -- import this object everywhere
 settings = Settings()
