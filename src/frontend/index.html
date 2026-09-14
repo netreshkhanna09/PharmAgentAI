@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmAgentAI - Regulatory Compliance</title>
+    <!-- Google Fonts: Inter for a clean, modern medical tech look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <h2>PharmAgentAI</h2>
+            </div>
+            <nav>
+                <a href="#" class="active" id="nav-new-run">New Claim</a>
+                <a href="#" id="nav-history">Run History</a>
+            </nav>
+            <div class="disclaimer-text">
+                <small>AI augments, not replaces, regulatory counsel.</small>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content">
+            <header>
+                <h1>FDA Claim Generator</h1>
+                <p class="subtitle">Automated compliance verification against 21 CFR Part 11</p>
+            </header>
+
+            <!-- Generate Claim View -->
+            <section id="view-generate" class="view active">
+                <div class="card">
+                    <h3>Generate New Claim</h3>
+                    <p>Enter a drug name to pull Phase 1-3 clinical trial data and generate a compliant marketing claim.</p>
+                    
+                    <form id="generate-form">
+                        <div class="form-group">
+                            <label for="drug-name">Drug Name (e.g., Pembrolizumab, Aspirin)</label>
+                            <input type="text" id="drug-name" placeholder="Enter drug name..." required>
+                        </div>
+                        <button type="submit" id="btn-generate" class="btn-primary">Generate & Verify</button>
+                    </form>
+                </div>
+
+                <!-- Status View (Appears after submission) -->
+                <div id="status-container" class="card status-card hidden">
+                    <div class="status-header">
+                        <h3>Pipeline Status</h3>
+                        <span id="run-status-badge" class="badge badge-pending">Running</span>
+                    </div>
+                    
+                    <div class="progress-steps">
+                        <div class="step active" id="step-med">
+                            <div class="step-circle">1</div>
+                            <div class="step-text">Medical Agent (ClinicalTrials.gov)</div>
+                        </div>
+                        <div class="step" id="step-comm">
+                            <div class="step-circle">2</div>
+                            <div class="step-text">Commercial Agent (Drafting)</div>
+                        </div>
+                        <div class="step" id="step-reg">
+                            <div class="step-circle">3</div>
+                            <div class="step-text">Regulatory Agent (FDA RAG Check)</div>
+                        </div>
+                    </div>
+
+                    <div id="result-box" class="result-box hidden">
+                        <h4>Final Approved Claim</h4>
+                        <p id="final-claim-text"></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Run History View -->
+            <section id="view-history" class="view hidden">
+                <div class="card">
+                    <h3>Recent Pipeline Runs</h3>
+                    <div class="table-container">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Drug Name</th>
+                                    <th>Status</th>
+                                    <th>Loops</th>
+                                    <th>Final Claim snippet</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-tbody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
