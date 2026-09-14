@@ -21,38 +21,13 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from src.models.schemas import AgentState
 from src.agents.medical_agent import medical_agent_node
-from src.agents.commercial_agent import commercial_agent_node  # Real agent now!
+from src.agents.commercial_agent import commercial_agent_node
+from src.agents.regulatory_agent import regulatory_agent_node  # Real RAG agent!
 from config.settings import settings
 
 
-# ── Regulatory Agent (Placeholder -- Full RAG implementation Day 5) ──
-def regulatory_agent_node(state: AgentState) -> dict:
-    """
-    Regulatory Compliance Agent.
-    Validates claim against FDA promotional guidelines.
-
-    CURRENT: Placeholder that always returns PASS.
-    DAY 5:   Full RAG implementation with FAISS vector store
-             containing real FDA guideline documents.
-    """
-    print(f"\n[RegAgent] Checking FDA compliance...")
-    print(f"   [CLAIM] {state.claim_draft.claim_text[:100]}...")
-
-    from src.models.schemas import ComplianceResult
-    result = ComplianceResult(
-        status="PASS",
-        failure_type=None,
-        violation_details=None,
-        fda_rule_referenced=None,
-        confidence_score=0.92,
-    )
-
-    print(f"   [OK] Status: {result.status} | Confidence: {result.confidence_score}")
-
-    return {
-        "compliance_result": result,
-        "loop_count": state.loop_count + 1,
-    }
+# regulatory_agent_node is now imported from src.agents.regulatory_agent
+# It uses FAISS + sentence-transformers + Groq for real FDA compliance checking
 
 
 # ── Output Generator (Placeholder -- Full PDF implementation Day 6) ──
@@ -128,9 +103,12 @@ def route_after_compliance(state: AgentState) -> str:
         print(f"\n[YELLOW] {failure_type} failure -> re-routing to Commercial Agent.")
         return "commercial_agent"
 
-    # Fallback (defensive -- should not reach here in normal operation)
-    print("\n[RED] Unknown failure type. Escalating to human review.")
-    return "human_review"
+    # Safety net: failure_type is None but status is FAIL
+    # LLM failed to classify -- treat as tone issue and re-draft the claim
+    # Better to retry than to immediately escalate to human
+    print(f"\n[YELLOW] Unclassified failure (type=None) -> re-routing to Commercial Agent.")
+    return "commercial_agent"
+
 
 
 # ── Build and Compile the Graph ─────────────────────────────────

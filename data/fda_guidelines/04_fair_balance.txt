@@ -1,0 +1,39 @@
+FDA PROMOTIONAL GUIDELINES — FAIR BALANCE AND RISK INFORMATION
+Source: 21 CFR 202.1(e)(5) and FDA Guidance on Presenting Risk Information
+Version: 2024
+
+RULE 4.1 — FAIR BALANCE REQUIREMENT
+All promotional materials that make efficacy claims must present risk information
+with the same prominence as the efficacy claims. This is called "fair balance."
+A promotional piece that prominently features efficacy data but minimizes
+or omits risk information violates the fair balance requirement.
+
+RULE 4.2 — REQUIRED SAFETY INFORMATION
+Every promotional claim must be accompanied by or reference:
+a) The most serious risks (boxed warning if applicable)
+b) The most common adverse reactions
+c) Contraindications
+d) A statement directing healthcare professionals to the full prescribing information
+
+RULE 4.3 — ADVERSE EVENT CONTEXT
+When citing efficacy statistics, the promotional material must not omit
+context about adverse events that occurred at similar rates. For example,
+claiming "Drug X improved Overall Survival" without noting that Grade 3-4
+adverse events occurred in 45% of patients is considered misleading.
+
+RULE 4.4 — PATIENT POPULATION CONTEXT
+All efficacy claims must clearly identify the patient population in which
+the results were observed. Applying results from a specific subpopulation
+to the broader indication is misleading.
+
+RULE 4.5 — HEADLINE CLAIMS
+Headline or headline-equivalent claims (those appearing in large text or
+prominently placed) are subject to heightened scrutiny. The benefit must
+be clear, the risk context must be immediately adjacent, and no misleading
+implication may arise from reading the headline alone.
+
+RULE 4.6 — TONE AND EMPHASIS
+Promotional materials must not use layout, formatting, or typography to
+minimize risk information relative to efficacy claims. Risk information
+must be presented in the same font size and with similar visual weight
+as the efficacy information it accompanies.

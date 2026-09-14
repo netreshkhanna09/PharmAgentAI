@@ -1,0 +1,41 @@
+FDA PROMOTIONAL GUIDELINES — STATISTICAL AND NUMERICAL CLAIMS
+Source: FDA Guidance on the Presentation of Quantitative Efficacy and Risk Information
+Version: 2024
+
+RULE 3.1 — REQUIRED STATISTICAL CONTEXT
+All numerical efficacy claims must include:
+a) The specific statistical measure (p-value, confidence interval, or hazard ratio)
+b) The patient population in which the result was observed
+c) The trial phase and design (e.g., "in a randomized Phase III trial")
+d) The primary endpoint being measured
+
+RULE 3.2 — P-VALUE PRESENTATION
+When citing p-values in promotional materials:
+- The exact p-value must be stated (e.g., p=0.03, not just "p<0.05")
+- P-values must be from the pre-specified primary analysis
+- Post-hoc or exploratory p-values must be labeled as such
+- A p-value of 0.05 does not constitute statistical significance per FDA standards
+
+RULE 3.3 — HAZARD RATIO REQUIREMENTS
+Claims based on hazard ratios must include:
+- The hazard ratio value (e.g., HR=0.71)
+- The 95% confidence interval (e.g., 95% CI: 0.61-0.83)
+- The reference comparator (e.g., "versus placebo")
+A hazard ratio without confidence intervals is considered incomplete and misleading.
+
+RULE 3.4 — RELATIVE VS ABSOLUTE RISK
+When presenting risk reduction data:
+- Relative risk reduction (RRR) claims must be accompanied by absolute risk reduction (ARR)
+- Presenting only relative risk reduction without absolute risk reduction is misleading
+- Number needed to treat (NNT) should be provided when clinically meaningful
+
+RULE 3.5 — ROUNDING AND APPROXIMATION
+Rounding of efficacy data in promotional claims is only permitted when:
+- The rounding does not change the clinical interpretation
+- The rounded figure is labeled as approximate
+- The precise figure is available in accompanying materials
+
+RULE 3.6 — COMPARATIVE STATISTICS
+Claims comparing drug performance to placebo must clearly state "versus placebo"
+or "compared to placebo." Claims comparing to active comparators must cite
+the specific comparator drug and its approved dose.

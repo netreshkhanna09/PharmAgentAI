@@ -1,0 +1,32 @@
+FDA PROMOTIONAL GUIDELINES — CITATION AND REFERENCE REQUIREMENTS
+Source: FDA Guidance on Good Reprint Practices and Citation Standards
+Version: 2024
+
+RULE 5.1 — CITATION REQUIREMENT FOR CLINICAL CLAIMS
+Every efficacy claim derived from clinical trial data must include a citation
+to the source trial. The citation must include at minimum:
+- The ClinicalTrials.gov NCT identifier, OR
+- The published journal article reference (author, journal, year), OR
+- The approved label section reference
+
+RULE 5.2 — CITATION FORMAT
+Citations in promotional materials must be:
+- Accurate and complete
+- Directly accessible to healthcare professionals
+- Reproducible (the cited source must support exactly the claim made)
+A claim citing a study that does not directly support it is a misleading citation.
+
+RULE 5.3 — UNPUBLISHED DATA
+Claims based on unpublished data or data on file must be labeled as such.
+Promotional materials may not present data on file with the same weight
+as peer-reviewed published evidence without disclosure.
+
+RULE 5.4 — SUBGROUP ANALYSIS LABELING
+Claims based on subgroup analyses of clinical trials must be labeled as
+"post-hoc analysis" or "subgroup analysis" and may not be presented with
+the same prominence as primary endpoint results.
+
+RULE 5.5 — REQUIRED NCT CITATION FORMAT
+When citing ClinicalTrials.gov, use the format: (NCTxxxxxxxx)
+Example: "Pembrolizumab demonstrated improved OS in a Phase III trial (NCT04512345)"
+The NCT number must match the trial that actually generated the cited data.

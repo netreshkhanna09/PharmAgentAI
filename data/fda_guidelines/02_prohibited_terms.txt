@@ -1,0 +1,38 @@
+FDA PROMOTIONAL GUIDELINES — PROHIBITED TERMS AND ABSOLUTE CLAIMS
+Source: FDA Guidance for Industry — Presenting Risk Information in Prescription Drug Advertising
+Version: 2024
+
+RULE 2.1 — ABSOLUTE CLAIMS PROHIBITION
+Promotional materials must not use absolute claims of safety or efficacy.
+The following terms are prohibited when used to imply absolute benefit:
+- "cure" or "cures"
+- "eliminates" (when referring to disease)
+- "100% effective" or similar absolute efficacy claims
+- "completely safe" or "totally safe"
+- "miracle drug" or "miracle treatment"
+- "breakthrough" (unless accompanied by regulatory designation)
+- "revolutionary" (unless supported by comparative evidence)
+
+RULE 2.2 — SUPERLATIVE CLAIMS
+Superlative claims ("the most effective", "the best", "the safest") require
+direct comparison data from head-to-head clinical trials. Without such data,
+superlative claims are considered misleading and are prohibited.
+
+RULE 2.3 — IMPLICATION OF SUPERIORITY
+Claims that imply superiority over competing drugs without direct comparative
+clinical trial evidence are prohibited. This includes claims like "a new option
+for patients who have failed other treatments" when no head-to-head data exists.
+
+RULE 2.4 — VAGUE EFFICACY LANGUAGE
+Vague terms that imply efficacy without substantiation are prohibited:
+- "works better"
+- "more powerful"
+- "stronger"
+- "faster acting" (without time-to-onset data)
+These terms require quantification and clinical substantiation.
+
+RULE 2.5 — SURVIVAL CLAIMS
+Claims involving survival benefit (Overall Survival, Disease-Free Survival,
+Progression-Free Survival) require robust Phase III data with survival as
+a pre-specified primary or key secondary endpoint. Survival claims based on
+post-hoc analyses or surrogate endpoints require explicit qualification.
