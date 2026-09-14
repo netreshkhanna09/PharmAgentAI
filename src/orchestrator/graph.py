@@ -22,7 +22,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from src.models.schemas import AgentState
 from src.agents.medical_agent import medical_agent_node
 from src.agents.commercial_agent import commercial_agent_node
-from src.agents.regulatory_agent import regulatory_agent_node  # Real RAG agent!
+from src.agents.regulatory_agent import regulatory_agent_node
+from src.memory.postgres_memory import save_run, save_claim, save_failure
 from config.settings import settings
 
 
@@ -34,7 +35,8 @@ from config.settings import settings
 def generate_output_node(state: AgentState) -> dict:
     """
     Generates final output from approved claim.
-    DAY 6: Will generate PDF + send via email.
+    NOW: Saves run + claim to episodic memory (SQLite/PostgreSQL).
+    DAY 6: Will also generate PDF report.
     """
     print(f"\n[OUTPUT] Claim approved! Finalizing...")
     print(f"\n{'='*60}")
@@ -47,6 +49,26 @@ def generate_output_node(state: AgentState) -> dict:
     print(f"NCT ID         : {state.trial_data.nct_id}")
     print(f"{'='*60}\n")
 
+    # ── Save to Episodic Memory ─────────────────────────────────
+    try:
+        run_id = save_run(
+            drug_name=state.drug_name,
+            status="completed",
+            loop_count=state.loop_count,
+            final_claim=state.claim_draft.claim_text,
+        )
+        save_claim(
+            run_id=run_id,
+            drug_name=state.drug_name,
+            claim_text=state.claim_draft.claim_text,
+            tone=state.claim_draft.tone or "scientific",
+            compliance_status="PASS",
+            loop_number=state.loop_count,
+        )
+        print(f"[Memory] Run saved to DB (run_id: {run_id[:8]}...)")
+    except Exception as e:
+        print(f"[Memory] Warning: Could not save to DB: {e}")
+
     return {"final_claim": state.claim_draft.claim_text}
 
 
@@ -54,17 +76,37 @@ def generate_output_node(state: AgentState) -> dict:
 def human_review_node(state: AgentState) -> dict:
     """
     Human-in-the-Loop escalation.
-    Triggered when loop_count >= MAX_RETRY_LOOPS.
-
-    WHY THIS MATTERS:
-    Without this, a persistently failing claim would loop forever,
-    consuming tokens and API credits indefinitely. This is the
-    hard circuit breaker that guarantees termination.
+    Saves run + failure to episodic memory before escalating.
     """
     print(f"\n[ALERT] Max retries ({state.loop_count}) exceeded!")
     print("   [ESCALATE] Routing to human reviewer.")
-    print(f"   [LAST CLAIM] {state.claim_draft.claim_text[:100]}...")
-    print(f"   [LAST FAILURE] {state.compliance_result.violation_details}")
+    if state.claim_draft:
+        print(f"   [LAST CLAIM] {state.claim_draft.claim_text[:100]}...")
+    if state.compliance_result:
+        print(f"   [LAST FAILURE] {state.compliance_result.violation_details}")
+
+    # ── Save failure to Episodic Memory ────────────────────────
+    try:
+        run_id = save_run(
+            drug_name=state.drug_name,
+            status="escalated",
+            loop_count=state.loop_count,
+            final_claim=None,
+        )
+        if state.compliance_result and state.claim_draft:
+            save_failure(
+                run_id=run_id,
+                drug_name=state.drug_name,
+                failure_type=state.compliance_result.failure_type,
+                violation_details=state.compliance_result.violation_details,
+                fda_rule=state.compliance_result.fda_rule_referenced,
+                claim_text=state.claim_draft.claim_text,
+                confidence_score=state.compliance_result.confidence_score or 0.0,
+            )
+        print(f"[Memory] Failure saved to DB (run_id: {run_id[:8]}...)")
+    except Exception as e:
+        print(f"[Memory] Warning: Could not save to DB: {e}")
+
     return {"escalated_to_human": True}
 
 

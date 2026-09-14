@@ -25,6 +25,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.models.schemas import AgentState, ClaimDraft, ClinicalTrialData
+from src.memory.postgres_memory import get_past_failures
 from config.settings import settings
 
 
@@ -94,15 +95,19 @@ patients with advanced non-small cell lung cancer."
 
 def _build_human_prompt(
     trial_data: ClinicalTrialData,
-    rejection_reason: str | None = None
+    rejection_reason: str | None = None,
+    past_failures: list | None = None,
 ) -> str:
     """
-    Builds the human-turn prompt with trial data and optional retry context.
+    Builds the human-turn prompt with:
+    1. Verified trial data (facts only)
+    2. Past failures from episodic memory (cross-run learning)
+    3. Current rejection reason if retrying (within-run learning)
 
-    On retry runs, we inject the SPECIFIC rejection reason.
-    This is how the agent learns from its previous failure.
+    TWO LEVELS OF REFLEXION:
+    - Cross-run:  past_failures from DB (previous separate executions)
+    - Within-run: rejection_reason (this execution, previous loop)
     """
-    # Format the trial data cleanly for the LLM
     data_block = f"""VERIFIED CLINICAL TRIAL DATA (use ONLY these facts):
 - Drug Name       : {trial_data.drug_name}
 - NCT ID          : {trial_data.nct_id}
@@ -113,23 +118,35 @@ def _build_human_prompt(
 - 95% CI          : {trial_data.confidence_interval if trial_data.confidence_interval else 'Not reported'}
 - Patient Pop.    : {trial_data.patient_population}"""
 
-    # On a retry, add the specific rejection reason
-    # This is the "Reflexion" pattern -- agent learns from its failure
+    # Cross-run episodic memory: past failures from DB
+    memory_block = ""
+    if past_failures:
+        failure_lines = [
+            f"  Failure {i} ({f.get('failure_type','unknown')}): "
+            f"{str(f.get('violation_details',''))[:150]}"
+            for i, f in enumerate(past_failures[:3], 1)
+        ]
+        memory_block = (
+            f"\n\nEPISODIC MEMORY -- PAST FAILURES FOR {trial_data.drug_name}:\n"
+            "(Avoid repeating these mistakes from previous runs):\n"
+            + "\n".join(failure_lines)
+        )
+
+    # Within-run Reflexion: this loop's rejection reason
+    retry_block = ""
     if rejection_reason:
         retry_block = f"""
 
-IMPORTANT -- PREVIOUS CLAIM WAS REJECTED:
+IMPORTANT -- THIS RUN'S PREVIOUS CLAIM WAS REJECTED:
 Rejection reason: {rejection_reason}
 
-You MUST fix this specific issue in your new draft.
-Do NOT repeat the same mistake. Adjust the tone/wording accordingly."""
-    else:
-        retry_block = ""
+You MUST fix this specific issue in your new draft."""
 
-    return f"""{data_block}{retry_block}
+    return f"""{data_block}{memory_block}{retry_block}
 
 Write a compelling, FDA-compliant pharmaceutical marketing claim for {trial_data.drug_name}.
 Choose tone="scientific" for this draft."""
+
 
 
 def commercial_agent_node(state: AgentState) -> dict:
@@ -145,17 +162,29 @@ def commercial_agent_node(state: AgentState) -> dict:
     """
     print(f"\n[CommAgent] Drafting claim for: {state.drug_name}")
 
-    # ── Extract rejection context on retry runs ─────────────────
-    # This implements the "Reflexion" pattern:
-    # Agent receives its past failure and reasons about how to fix it
+    # ── Cross-run episodic memory: retrieve past failures ───────
+    # Only on first attempt (loop_count == 0) -- we want the agent
+    # to start with institutional knowledge, not just on retries
+    past_failures = []
+    if state.loop_count == 0:
+        past_failures = get_past_failures(state.drug_name, limit=3)
+        if past_failures:
+            print(f"   [MEMORY] Retrieved {len(past_failures)} past failure(s) from DB")
+            for f in past_failures:
+                print(f"   [MEMORY] {f['failure_type']}: {str(f['violation_details'])[:80]}...")
+        else:
+            print("   [MEMORY] No past failures found for this drug -- clean slate")
+
+    # ── Within-run Reflexion: extract rejection context ─────────
     rejection_reason = None
     if state.loop_count > 0 and state.compliance_result:
         rejection_reason = state.compliance_result.violation_details
-        print(f"   [RETRY] Loop #{state.loop_count} -- fixing: {rejection_reason}")
+        print(f"   [RETRY] Loop #{state.loop_count} -- fixing: {str(rejection_reason)[:80]}...")
 
     # ── Build prompts ───────────────────────────────────────────
     system_prompt = _build_system_prompt()
-    human_prompt = _build_human_prompt(state.trial_data, rejection_reason)
+    human_prompt = _build_human_prompt(state.trial_data, rejection_reason, past_failures)
+
 
     # ── Call LLM with structured output ────────────────────────
     # The LLM MUST return a ClaimDraft object.

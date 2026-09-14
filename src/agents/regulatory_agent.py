@@ -29,6 +29,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.models.schemas import AgentState, ComplianceResult
 from src.memory.vector_store import get_vector_store, retrieve_relevant_rules
+from src.memory.postgres_memory import save_failure
 from config.settings import settings
 
 
@@ -235,6 +236,26 @@ def regulatory_agent_node(state: AgentState) -> dict:
     if result.failure_type:
         print(f"   [FAIL] Type     : {result.failure_type}")
         print(f"   [FAIL] Violation: {result.violation_details}")
+
+    # ── Save Failure to Episodic Memory IMMEDIATELY ─────────────
+    # KEY INSIGHT: We save failures HERE (not just in human_review_node)
+    # so even if the run eventually PASSES after a retry, the intermediate
+    # failure is remembered for future runs.
+    # This is what enables true cross-run learning.
+    if result.status == "FAIL" and result.failure_type:
+        try:
+            save_failure(
+                run_id=f"loop-{state.loop_count}-{state.drug_name}",  # temp ID
+                drug_name=state.drug_name,
+                failure_type=result.failure_type,
+                violation_details=result.violation_details,
+                fda_rule=result.fda_rule_referenced,
+                claim_text=state.claim_draft.claim_text,
+                confidence_score=result.confidence_score or 0.0,
+            )
+            print(f"   [Memory] Failure saved to DB for future learning")
+        except Exception as e:
+            print(f"   [Memory] Warning: Could not save failure: {e}")
 
     return {
         "compliance_result": result,
