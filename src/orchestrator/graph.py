@@ -23,7 +23,8 @@ from src.models.schemas import AgentState
 from src.agents.medical_agent import medical_agent_node
 from src.agents.commercial_agent import commercial_agent_node
 from src.agents.regulatory_agent import regulatory_agent_node
-from src.memory.postgres_memory import save_run, save_claim, save_failure
+from src.memory.postgres_memory import save_run, save_claim, save_failure, get_run_stats
+from src.output.report_generator import generate_pdf_report
 from config.settings import settings
 
 
@@ -50,6 +51,7 @@ def generate_output_node(state: AgentState) -> dict:
     print(f"{'='*60}\n")
 
     # ── Save to Episodic Memory ─────────────────────────────────
+    run_id = "unknown"
     try:
         run_id = save_run(
             drug_name=state.drug_name,
@@ -68,6 +70,14 @@ def generate_output_node(state: AgentState) -> dict:
         print(f"[Memory] Run saved to DB (run_id: {run_id[:8]}...)")
     except Exception as e:
         print(f"[Memory] Warning: Could not save to DB: {e}")
+
+    # ── Generate PDF Report ─────────────────────────────────────
+    try:
+        stats = get_run_stats(state.drug_name)
+        pdf_path = generate_pdf_report(state, run_id, stats)
+        print(f"[OUTPUT] PDF Report Generated: {pdf_path}")
+    except Exception as e:
+        print(f"[OUTPUT] Warning: Could not generate PDF: {e}")
 
     return {"final_claim": state.claim_draft.claim_text}
 
