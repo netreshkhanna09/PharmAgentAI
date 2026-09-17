@@ -18,6 +18,7 @@
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.runnables import RunnableConfig
 
 from src.models.schemas import AgentState
 from src.agents.medical_agent import medical_agent_node
@@ -33,7 +34,7 @@ from config.settings import settings
 
 
 # ── Output Generator (Placeholder -- Full PDF implementation Day 6) ──
-def generate_output_node(state: AgentState, config: dict = None) -> dict:
+def generate_output_node(state: AgentState, config: RunnableConfig = None) -> dict:
     """
     Generates final output from approved claim.
     Saves run + claim to episodic memory (SQLite/PostgreSQL).

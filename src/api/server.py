@@ -82,6 +82,7 @@ def _execute_pipeline(drug_name: str, tone: str, run_id: str):
     """
     print(f"\n[API Background] Starting pipeline for {drug_name} (run_id={run_id[:8]}...)")
     initial_state = AgentState(
+        user_request=f"Generate a {tone} FDA-compliant marketing claim for {drug_name}",
         drug_name=drug_name,
         claim_draft=None,
         trial_data=None,
@@ -93,7 +94,10 @@ def _execute_pipeline(drug_name: str, tone: str, run_id: str):
             initial_state,
             config={
                 "recursion_limit": 10,
-                "configurable": {"run_id": run_id},  # ← key fix: UUID flows to DB
+                "configurable": {
+                    "thread_id": run_id,   # ← required by MemorySaver checkpoint
+                    "run_id": run_id,      # ← our custom field for DB save
+                },
             }
         )
         print(f"[API Background] Pipeline completed for {drug_name}")
