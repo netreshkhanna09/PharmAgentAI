@@ -54,15 +54,33 @@ app = FastAPI(
     version="1.0.0",
 )
 
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+# Add CORS Middleware so frontend can make API requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount frontend directory for static serving
+import os
+frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
+app.mount("/ui", StaticFiles(directory=frontend_path, html=True), name="frontend")
+
 
 # ── Background Task Runner ──────────────────────────────────────
 
-def _execute_pipeline(drug_name: str, tone: str):
+def _execute_pipeline(drug_name: str, tone: str, run_id: str):
     """
-    Synchronous wrapper to run the LangGraph pipeline.
-    This runs in a background thread so it doesn't block the API.
+    Runs the LangGraph pipeline in a background thread.
+    CRITICAL: run_id is passed via LangGraph 'config' so the DB
+    saves the record with THIS id — the same one the client polls.
     """
-    print(f"\n[API Background] Starting pipeline for {drug_name}...")
+    print(f"\n[API Background] Starting pipeline for {drug_name} (run_id={run_id[:8]}...)")
     initial_state = AgentState(
         drug_name=drug_name,
         claim_draft=None,
@@ -70,12 +88,14 @@ def _execute_pipeline(drug_name: str, tone: str):
         compliance_result=None,
         loop_count=0
     )
-    
-    # Run the graph
     try:
-        # Note: In production, we'd pass the run_id to the graph to save it
-        # properly in the DB. For simplicity, the graph generates its own run_id.
-        pharma_graph.invoke(initial_state, config={"recursion_limit": 10})
+        pharma_graph.invoke(
+            initial_state,
+            config={
+                "recursion_limit": 10,
+                "configurable": {"run_id": run_id},  # ← key fix: UUID flows to DB
+            }
+        )
         print(f"[API Background] Pipeline completed for {drug_name}")
     except Exception as e:
         print(f"[API Background] Pipeline failed for {drug_name}: {e}")
@@ -93,18 +113,23 @@ async def health_check():
 async def trigger_run(request: RunRequest, bg_tasks: BackgroundTasks):
     """
     Triggers a new pipeline run.
-    Returns 202 Accepted immediately and runs the LLMs in the background.
+    Returns 202 Accepted immediately; pipeline runs in background.
+
+    THE FLOW:
+    1. Generate UUID here (run_id)
+    2. Return run_id to client immediately
+    3. Background task starts → passes run_id into graph config
+    4. graph.py saves DB record with THAT run_id
+    5. Client polls GET /runs/{run_id} until it appears in DB
     """
     run_id = str(uuid.uuid4())
-    
-    # Add to background tasks (executed AFTER response is sent)
-    bg_tasks.add_task(_execute_pipeline, request.drug_name, request.tone)
-    
+    bg_tasks.add_task(_execute_pipeline, request.drug_name, request.tone, run_id)
     return RunResponse(
         run_id=run_id,
-        status="accepted",
-        message=f"Pipeline triggered for {request.drug_name}. Check logs for output."
+        status="pending",
+        message=f"Pipeline triggered for {request.drug_name}. Poll GET /runs/{run_id} for status."
     )
+
 
 
 @app.get("/runs", response_model=List[RunDetails], tags=["Database"])
@@ -131,6 +156,43 @@ async def list_runs():
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/runs/{run_id}", response_model=RunDetails, tags=["Database"])
+async def get_run(run_id: str):
+    """
+    Gets the status of a specific pipeline run by its UUID.
+    
+    THE POLLING CONTRACT:
+    - Returns 404 while the pipeline is still running (not in DB yet)
+    - Returns 200 with full details once the pipeline completes
+    - Frontend polls this endpoint every 2-3 seconds after POST /runs
+    """
+    try:
+        with _engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT id AS run_id, drug_name, status, final_claim, loop_count FROM agent_runs WHERE id = :run_id"),
+                {"run_id": run_id}
+            )
+            row = result.fetchone()
+
+        if row is None:
+            # Not in DB yet = still running in background
+            raise HTTPException(status_code=404, detail="Run not yet complete (still processing)")
+
+        return RunDetails(
+            run_id=row.run_id,
+            drug_name=row.drug_name,
+            status=row.status,
+            final_claim=row.final_claim,
+            loop_count=row.loop_count
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
 @app.get("/drugs/{drug_name}/failures", tags=["Database"])

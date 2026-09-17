@@ -33,11 +33,16 @@ from config.settings import settings
 
 
 # ── Output Generator (Placeholder -- Full PDF implementation Day 6) ──
-def generate_output_node(state: AgentState) -> dict:
+def generate_output_node(state: AgentState, config: dict = None) -> dict:
     """
     Generates final output from approved claim.
-    NOW: Saves run + claim to episodic memory (SQLite/PostgreSQL).
-    DAY 6: Will also generate PDF report.
+    Saves run + claim to episodic memory (SQLite/PostgreSQL).
+    Generates PDF audit report.
+
+    WHY config parameter?
+    LangGraph passes a 'config' dict when invoking the graph.
+    The API puts the pre-generated run_id into config['configurable']['run_id']
+    so the DB record uses the same UUID the client is polling for.
     """
     print(f"\n[OUTPUT] Claim approved! Finalizing...")
     print(f"\n{'='*60}")
@@ -50,6 +55,12 @@ def generate_output_node(state: AgentState) -> dict:
     print(f"NCT ID         : {state.trial_data.nct_id}")
     print(f"{'='*60}\n")
 
+    # ── Resolve run_id: use API-provided or generate new ───────────
+    # config is {'configurable': {'run_id': '...'}} when called from API
+    api_run_id = None
+    if config and "configurable" in config:
+        api_run_id = config["configurable"].get("run_id")
+
     # ── Save to Episodic Memory ─────────────────────────────────
     run_id = "unknown"
     try:
@@ -58,6 +69,7 @@ def generate_output_node(state: AgentState) -> dict:
             status="completed",
             loop_count=state.loop_count,
             final_claim=state.claim_draft.claim_text,
+            run_id=api_run_id,   # ← pass API's UUID so client can poll it
         )
         save_claim(
             run_id=run_id,
@@ -80,6 +92,7 @@ def generate_output_node(state: AgentState) -> dict:
         print(f"[OUTPUT] Warning: Could not generate PDF: {e}")
 
     return {"final_claim": state.claim_draft.claim_text}
+
 
 
 # ── Human Review (Circuit Breaker) ─────────────────────────────

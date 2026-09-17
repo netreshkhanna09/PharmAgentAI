@@ -86,31 +86,51 @@ formGenerate.addEventListener('submit', async (e) => {
 
 
 // ── HTTP Polling for Background Tasks ──────────────────────────
+// HOW THIS WORKS:
+// 1. POST /runs returns a run_id UUID immediately (202 Accepted)
+// 2. We poll GET /runs/{run_id} every 2.5 seconds
+// 3. While pipeline is running: server returns 404 (not in DB yet)
+// 4. When pipeline finishes: server returns 200 with the full run details
+// 5. We clear the interval and display the result
+// 
+// WHY 404 = "still running"?
+// The DB record is only created AFTER the pipeline completes.
+// A missing record = pipeline still in progress. This is the
+// "poll until it exists" pattern — simple and reliable.
 
 async function pollRunStatus(runId) {
-    // We poll the GET /runs endpoint to check if our run is completed
+    let attempts = 0;
+    const maxAttempts = 60; // 60 * 2.5s = 2.5 minutes max wait
+    
     const interval = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(interval);
+            alert("Pipeline is taking longer than expected. Please check the terminal.");
+            btnGenerate.disabled = false;
+            btnGenerate.textContent = 'Generate & Verify';
+            return;
+        }
+
         try {
-            const response = await fetch(`${API_BASE}/runs`);
-            const runs = await response.json();
+            const response = await fetch(`${API_BASE}/runs/${runId}`);
             
-            // Find our run in the DB
-            const ourRun = runs.find(r => r.run_id === runId);
-            
-            if (ourRun) {
-                // If it exists in the DB, it has finished!
-                // (Our API only saves to DB after the LangGraph pipeline completes)
-                clearInterval(interval);
-                handleRunCompleted(ourRun);
-            } else {
-                // Not in DB yet, still running.
-                // Simulate step progression for UX (since graph is synchronous in backend)
+            if (response.status === 404) {
+                // Still running — update simulated progress
                 updateSimulatedProgress();
+                return;
+            }
+
+            if (response.ok) {
+                // Pipeline completed!
+                clearInterval(interval);
+                const runDetails = await response.json();
+                handleRunCompleted(runDetails);
             }
         } catch (error) {
             console.error("Polling error", error);
         }
-    }, 2500); // Poll every 2.5 seconds
+    }, 2500);
 }
 
 

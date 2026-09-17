@@ -140,19 +140,21 @@ def save_run(
     status: str,
     loop_count: int,
     final_claim: Optional[str] = None,
+    run_id: Optional[str] = None,      # ← NEW: accept pre-generated ID from API
 ) -> str:
     """
     Saves a completed agent run to the database.
-    Returns the generated run_id (UUID) for linking child records.
+    Returns the run_id for linking child records.
 
-    ATOMICITY:
-    Uses a single INSERT in one transaction.
-    If anything fails, SQLAlchemy automatically rolls back.
+    WHY optional run_id?
+    When the API pre-generates a UUID for the client to poll against,
+    it MUST be the same UUID stored in the DB.
+    Without this, the API UUID and DB UUID are different → polling breaks.
     """
-    run_id = str(uuid.uuid4())
+    run_id = run_id or str(uuid.uuid4())   # use provided or generate new
     now = datetime.now(timezone.utc)
 
-    with _engine.begin() as conn:   # begin() = auto-commit on success, rollback on error
+    with _engine.begin() as conn:
         conn.execute(
             agent_runs.insert().values(
                 id=run_id,
@@ -166,6 +168,7 @@ def save_run(
         )
 
     return run_id
+
 
 
 def save_claim(
