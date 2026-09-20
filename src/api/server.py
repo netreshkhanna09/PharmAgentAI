@@ -66,11 +66,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount frontend directory for static serving
-import os
-frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-# /ui for local dev, root / for Railway production
-app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+# Root redirect so both / and /ui/ work
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/ui/")
 
 
 # ── Background Task Runner ──────────────────────────────────────
@@ -230,3 +231,9 @@ async def get_drug_failures(drug_name: str):
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Static Frontend (MUST be last so API routes take priority) ──
+import os as _os
+_frontend_path = _os.path.join(_os.path.dirname(__file__), "..", "frontend")
+app.mount("/ui", StaticFiles(directory=_frontend_path, html=True), name="frontend")
