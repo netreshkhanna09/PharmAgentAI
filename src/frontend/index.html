@@ -3,102 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PharmAgentAI - Regulatory Compliance</title>
-    <!-- Google Fonts: Inter for a clean, modern medical tech look -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>PharmAgentAI — FDA Compliance Platform</title>
+    <meta name="description" content="AI-powered pharmaceutical marketing claim generation with automated FDA compliance verification">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar Navigation -->
-        <aside class="sidebar">
-            <div class="logo">
-                <div class="logo-icon"></div>
-                <h2>PharmAgentAI</h2>
-            </div>
-            <nav>
-                <a href="#" class="active" id="nav-new-run">New Claim</a>
-                <a href="#" id="nav-history">Run History</a>
-            </nav>
-            <div class="disclaimer-text">
-                <small>AI augments, not replaces, regulatory counsel.</small>
-            </div>
-        </aside>
+    <!-- Animated Background -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
 
-        <!-- Main Content Area -->
-        <main class="content">
-            <header>
+    <!-- Top Navigation Bar -->
+    <nav class="topnav">
+        <div class="nav-logo">
+            <div class="logo-mark">⚕</div>
+            <span>PharmAgent<strong>AI</strong></span>
+        </div>
+        <div class="nav-links">
+            <a href="#" class="nav-link active" id="nav-generate">Generate Claim</a>
+            <a href="#" class="nav-link" id="nav-history">Run History</a>
+        </div>
+        <div class="nav-badge">
+            <span class="pulse-dot"></span>
+            FDA Compliance Active
+        </div>
+    </nav>
+
+    <!-- Main App -->
+    <main class="main-content">
+
+        <!-- ── GENERATE VIEW ─────────────────────────────── -->
+        <section id="view-generate" class="view active">
+
+            <!-- Hero Title -->
+            <div class="hero">
+                <div class="hero-tag">21 CFR Part 11 Compliant</div>
                 <h1>FDA Claim Generator</h1>
-                <p class="subtitle">Automated compliance verification against 21 CFR Part 11</p>
-            </header>
+                <p class="hero-sub">Enter a drug name. Our 3-agent AI pipeline fetches clinical trial data from ClinicalTrials.gov, drafts a compliant marketing claim, and verifies it against FDA guidelines — automatically.</p>
+            </div>
 
-            <!-- Generate Claim View -->
-            <section id="view-generate" class="view active">
-                <div class="card">
-                    <h3>Generate New Claim</h3>
-                    <p>Enter a drug name to pull Phase 1-3 clinical trial data and generate a compliant marketing claim.</p>
-                    
-                    <form id="generate-form">
-                        <div class="form-group">
-                            <label for="drug-name">Drug Name (e.g., Pembrolizumab, Aspirin)</label>
-                            <input type="text" id="drug-name" placeholder="Enter drug name..." required>
-                        </div>
-                        <button type="submit" id="btn-generate" class="btn-primary">Generate & Verify</button>
-                    </form>
-                </div>
+            <!-- Input Card -->
+            <div class="card glass-card" id="input-card">
+                <div class="card-icon">🧬</div>
+                <h2>Generate New Claim</h2>
+                <p class="card-desc">Supports any FDA-approved or investigational drug. Try <em>Pembrolizumab</em>, <em>Semaglutide</em>, or <em>Trastuzumab</em>.</p>
 
-                <!-- Status View (Appears after submission) -->
-                <div id="status-container" class="card status-card hidden">
-                    <div class="status-header">
-                        <h3>Pipeline Status</h3>
-                        <span id="run-status-badge" class="badge badge-pending">Running</span>
+                <form id="generate-form">
+                    <div class="input-row">
+                        <input
+                            type="text"
+                            id="drug-name"
+                            placeholder="Enter drug name (e.g., Pembrolizumab)..."
+                            autocomplete="off"
+                            required
+                        >
+                        <button type="submit" id="btn-generate" class="btn-primary">
+                            <span class="btn-text">Generate Claim</span>
+                            <span class="btn-icon">→</span>
+                        </button>
                     </div>
-                    
-                    <div class="progress-steps">
-                        <div class="step active" id="step-med">
-                            <div class="step-circle">1</div>
-                            <div class="step-text">Medical Agent (ClinicalTrials.gov)</div>
-                        </div>
-                        <div class="step" id="step-comm">
-                            <div class="step-circle">2</div>
-                            <div class="step-text">Commercial Agent (Drafting)</div>
-                        </div>
-                        <div class="step" id="step-reg">
-                            <div class="step-circle">3</div>
-                            <div class="step-text">Regulatory Agent (FDA RAG Check)</div>
-                        </div>
+                    <div class="email-row">
+                        <input type="email" id="notify-email" placeholder="Email for notification when complete (optional)">
                     </div>
+                </form>
+            </div>
 
-                    <div id="result-box" class="result-box hidden">
-                        <h4>Final Approved Claim</h4>
-                        <p id="final-claim-text"></p>
+            <!-- Pipeline Status Card (hidden until triggered) -->
+            <div class="card status-card hidden" id="status-card">
+                <div class="status-header">
+                    <h3>Pipeline Running</h3>
+                    <div class="status-badge" id="status-badge">
+                        <span class="badge-dot"></span>
+                        <span id="badge-text">Processing</span>
                     </div>
                 </div>
-            </section>
 
-            <!-- Run History View -->
-            <section id="view-history" class="view hidden">
-                <div class="card">
-                    <h3>Recent Pipeline Runs</h3>
-                    <div class="table-container">
-                        <table id="history-table">
-                            <thead>
-                                <tr>
-                                    <th>Drug Name</th>
-                                    <th>Status</th>
-                                    <th>Loops</th>
-                                    <th>Final Claim snippet</th>
-                                </tr>
-                            </thead>
-                            <tbody id="history-tbody">
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
+                <!-- Agent Steps -->
+                <div class="pipeline-steps">
+                    <div class="step" id="step-1">
+                        <div class="step-icon">🔬</div>
+                        <div class="step-body">
+                            <div class="step-title">Medical Agent</div>
+                            <div class="step-desc">Fetching trial data from ClinicalTrials.gov</div>
+                        </div>
+                        <div class="step-status" id="step-1-status">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step step-waiting" id="step-2">
+                        <div class="step-icon">✍️</div>
+                        <div class="step-body">
+                            <div class="step-title">Commercial Agent</div>
+                            <div class="step-desc">Drafting compliant marketing claim</div>
+                        </div>
+                        <div class="step-status" id="step-2-status">
+                            <div class="waiting-dot">···</div>
+                        </div>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step step-waiting" id="step-3">
+                        <div class="step-icon">⚖️</div>
+                        <div class="step-body">
+                            <div class="step-title">Regulatory Agent</div>
+                            <div class="step-desc">Verifying against FDA guidelines (RAG)</div>
+                        </div>
+                        <div class="step-status" id="step-3-status">
+                            <div class="waiting-dot">···</div>
+                        </div>
                     </div>
                 </div>
-            </section>
-        </main>
-    </div>
+
+                <!-- Loop indicator -->
+                <div class="loop-bar" id="loop-bar">
+                    <span id="loop-text">Loop 1 of 3 max</span>
+                </div>
+            </div>
+
+            <!-- Result Card (hidden until complete) -->
+            <div class="card result-card hidden" id="result-card">
+                <div class="result-header">
+                    <div class="approved-badge">✓ APPROVED — FDA COMPLIANT</div>
+                    <div class="result-meta" id="result-meta"></div>
+                </div>
+                <blockquote class="claim-text" id="claim-text"></blockquote>
+                <div class="result-actions">
+                    <button class="btn-outline" onclick="copyClaimText()">📋 Copy Claim</button>
+                    <button class="btn-primary small" onclick="resetForm()">Generate Another →</button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ── HISTORY VIEW ──────────────────────────────── -->
+        <section id="view-history" class="view hidden">
+            <div class="hero">
+                <h1>Run History</h1>
+                <p class="hero-sub">All pipeline runs stored in the episodic memory database. The system learns from past failures to avoid repeating them.</p>
+            </div>
+
+            <div class="card glass-card">
+                <div class="history-controls">
+                    <h3>Recent Runs</h3>
+                    <button class="btn-outline small" onclick="loadHistory()">↻ Refresh</button>
+                </div>
+                <div class="table-wrap">
+                    <table id="history-table">
+                        <thead>
+                            <tr>
+                                <th>Drug</th>
+                                <th>Status</th>
+                                <th>Loops</th>
+                                <th>Approved Claim</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-tbody">
+                            <tr><td colspan="4" class="loading-row">Loading history...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast notification -->
+    <div class="toast hidden" id="toast"></div>
 
     <script src="app.js"></script>
 </body>

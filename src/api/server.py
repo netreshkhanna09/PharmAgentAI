@@ -69,7 +69,8 @@ app.add_middleware(
 # Mount frontend directory for static serving
 import os
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
-app.mount("/ui", StaticFiles(directory=frontend_path, html=True), name="frontend")
+# /ui for local dev, root / for Railway production
+app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 
 # ── Background Task Runner ──────────────────────────────────────
