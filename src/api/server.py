@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from src.orchestrator.graph import pharma_graph
 from src.models.schemas import AgentState
 from src.memory.postgres_memory import _engine
+from src.agents.action_agent import send_claim_notification
 from sqlalchemy import text
 
 
@@ -30,6 +31,7 @@ class RunRequest(BaseModel):
     """Payload for POST /runs"""
     drug_name: str
     tone: str = "scientific"
+    notify_email: Optional[str] = None   # ← email for Action Agent notification
 
 class RunResponse(BaseModel):
     """Response for POST /runs"""
@@ -76,11 +78,12 @@ async def root():
 
 # ── Background Task Runner ──────────────────────────────────────
 
-def _execute_pipeline(drug_name: str, tone: str, run_id: str):
+def _execute_pipeline(drug_name: str, tone: str, run_id: str, notify_email: str = None):
     """
     Runs the LangGraph pipeline in a background thread.
     CRITICAL: run_id is passed via LangGraph 'config' so the DB
     saves the record with THIS id — the same one the client polls.
+    After completion, triggers the Action Agent to send email notification.
     """
     print(f"\n[API Background] Starting pipeline for {drug_name} (run_id={run_id[:8]}...)")
     initial_state = AgentState(
@@ -97,12 +100,33 @@ def _execute_pipeline(drug_name: str, tone: str, run_id: str):
             config={
                 "recursion_limit": 10,
                 "configurable": {
-                    "thread_id": run_id,   # ← required by MemorySaver checkpoint
-                    "run_id": run_id,      # ← our custom field for DB save
+                    "thread_id": run_id,
+                    "run_id": run_id,
                 },
             }
         )
         print(f"[API Background] Pipeline completed for {drug_name}")
+
+        # ── Action Agent: Email Notification ──────────────────
+        # Fetch the completed run from DB to get the final claim text
+        if notify_email:
+            try:
+                with _engine.connect() as conn:
+                    row = conn.execute(
+                        text("SELECT final_claim, loop_count FROM agent_runs WHERE id = :id"),
+                        {"id": run_id}
+                    ).fetchone()
+                if row and row.final_claim:
+                    send_claim_notification(
+                        recipient_email=notify_email,
+                        drug_name=drug_name,
+                        final_claim=row.final_claim,
+                        loop_count=row.loop_count,
+                        run_id=run_id,
+                    )
+            except Exception as email_err:
+                print(f"[Action Agent] Email step failed: {email_err}")
+
     except Exception as e:
         print(f"[API Background] Pipeline failed for {drug_name}: {e}")
 
@@ -129,7 +153,13 @@ async def trigger_run(request: RunRequest, bg_tasks: BackgroundTasks):
     5. Client polls GET /runs/{run_id} until it appears in DB
     """
     run_id = str(uuid.uuid4())
-    bg_tasks.add_task(_execute_pipeline, request.drug_name, request.tone, run_id)
+    bg_tasks.add_task(
+        _execute_pipeline,
+        request.drug_name,
+        request.tone,
+        run_id,
+        request.notify_email,   # ← passed to Action Agent for email notification
+    )
     return RunResponse(
         run_id=run_id,
         status="pending",
